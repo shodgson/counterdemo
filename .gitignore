@@ -1,0 +1,7 @@
+dist/
+build/
+bin/
+node_modules/
+.serverless/
+.npmignore
+.env

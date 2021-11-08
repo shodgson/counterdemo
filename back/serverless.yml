@@ -1,0 +1,59 @@
+service: speedbuildtemplate
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: go1.x
+  lambdaHashingVersion: 20201221
+  profile: speedtemplate
+  stage: ${opt:stage, self:custom.defaultStage}
+  region: us-east-2
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { 'Fn::GetAtt': ['TableCount', 'Arn'] }
+
+
+# you can define service wide environment variables here
+  environment:
+    SLS_STAGE: ${self:provider.stage}
+
+package:
+  patterns:
+    - '!./**'
+    - ./bin/**
+
+functions:
+  counter:
+    handler: bin/counter
+    events:
+      - httpApi:
+          path: /users
+          method: get
+      - httpApi:
+          path: /users/{username}
+          method: get
+
+resources:
+  Resources:
+    TableCount:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.stage}-counts
+        AttributeDefinitions:
+          - AttributeName: username
+            AttributeType: S
+        KeySchema:
+          - AttributeName: username
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+custom:
+    defaultStage: dev
