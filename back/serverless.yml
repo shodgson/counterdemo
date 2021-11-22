@@ -5,9 +5,9 @@ provider:
   name: aws
   runtime: go1.x
   lambdaHashingVersion: 20201221
-  profile: speedtemplate
-  stage: ${opt:stage, self:custom.defaultStage}
-  region: us-east-2
+  profile: ${env:AWS_PROFILE}
+  stage: ${sls:stage}
+  region: ${env:AWS_REGION}
   iamRoleStatements:
     - Effect: "Allow"
       Action:
@@ -20,19 +20,33 @@ provider:
       Resource:
         - { 'Fn::GetAtt': ['TableCount', 'Arn'] }
 
-
-# you can define service wide environment variables here
   environment:
-    SLS_STAGE: ${self:provider.stage}
+    STAGE: ${sls:stage}
+    COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID}
+
+  httpApi:
+    authorizers:
+      serviceAuthorizer:
+        identitySource: $request.header.Authorization
+        issuerUrl: 
+          Fn::Join:
+          - ''
+          - - 'https://cognito-idp.'
+            - '${self:provider.region}'
+            - '.amazonaws.com/'
+            - Ref: serviceUserPool
+        audience:
+          - Ref: serviceUserPoolClient
 
 package:
   patterns:
     - '!./**'
     - ./bin/**
+    - ./js/**
 
 functions:
   counter:
-    handler: bin/counter
+    handler: bin/counter_api
     events:
       - httpApi:
           path: /users
@@ -40,20 +54,126 @@ functions:
       - httpApi:
           path: /users/{username}
           method: get
+      - httpApi:
+          path: /users/{username}
+          method: post
+          authorizer: serviceAuthorizer
+      - httpApi:
+          path: /users/{username}
+          method: patch
+          authorizer: serviceAuthorizer
+      # Account/subscription management
+      - httpApi:
+          path: /users/{username}/activate
+          method: post
+      - httpApi:
+          path: /users/{username}/cancel
+          method: post
+      - httpApi:
+          path: /subscription
+          method: post
+
+  cognitoHandlers:
+    handler: js/preSignUp.handler
+    runtime: nodejs14.x
+    events:
+      - cognitoUserPool:
+          pool: service-user-pool-${sls:stage}
+          existing: true
+          trigger: PreSignUp
 
 resources:
   Resources:
     TableCount:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:provider.stage}-counts
+        TableName: ${sls:stage}-counts
         AttributeDefinitions:
-          - AttributeName: username
+          - AttributeName: id
             AttributeType: S
         KeySchema:
-          - AttributeName: username
+          - AttributeName: id
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
+          #HttpApi:
+          #DependsOn: serviceUserPool
+    serviceUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: service-user-pool-${sls:stage}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+              MinimumLength: 6
+              RequireLowercase: false
+              RequireNumbers: false
+              RequireSymbols: false
+              RequireUppercase: false
+              TemporaryPasswordValidityDays: 7
 
-custom:
-    defaultStage: dev
+
+    serviceUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: service-user-pool-client-${sls:stage}
+        UserPoolId:
+          Ref: serviceUserPool
+        AccessTokenValidity: 24
+        AllowedOAuthFlows: 
+          - code
+        AllowedOAuthFlowsUserPoolClient: true
+        AllowedOAuthScopes: 
+          - email
+          - openid
+          - profile
+            #- String
+            #AnalyticsConfiguration: 
+            #AnalyticsConfiguration
+        CallbackURLs: 
+          - http://localhost:3000/
+            #DefaultRedirectURI: String
+            #EnableTokenRevocation: Boolean
+        ExplicitAuthFlows: 
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_CUSTOM_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_USER_PASSWORD_AUTH
+        GenerateSecret: false
+        IdTokenValidity: 24
+        LogoutURLs: 
+          - http://localhost:3000/signout
+        #PreventUserExistenceErrors: String
+        ReadAttributes: 
+          - name
+          - email
+          - preferred_username
+        RefreshTokenValidity: 3650
+        SupportedIdentityProviders: 
+          - COGNITO
+        #TokenValidityUnits: 
+        WriteAttributes: 
+          - name
+          - email
+          - preferred_username
+
+            #serviceUserPoolDomain:
+            #Type: AWS::Cognito::UserPoolDomain 
+            #Properties:
+            #UserPoolId: 
+            #Ref: serviceUserPool
+            #Domain: service-user-pool-domain-${opt:stage, self:provider.stage}-${self:provider.environment.DOMAIN_SUFFIX}
+
+  Outputs:
+    UserPoolId:
+      Value:
+        Ref: serviceUserPool
+    UserPoolClientId:
+      Value:
+        Ref: serviceUserPoolClient
+
+# v3.0.0
+useDotenv: true
+variablesResolutionMode: 20210326
