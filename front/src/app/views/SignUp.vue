@@ -1,0 +1,147 @@
+<template>
+  <div>
+    <h1 class="text-xl my-6">Sign up</h1>
+    <div class="w-full max-w-xs mx-auto">
+      <form
+        @submit.prevent="signUp"
+        class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+      >
+        <div class="mb-4">
+          <label
+            class="block text-gray-700 text-sm font-bold mb-2"
+            for="username"
+          >
+            Email
+          </label>
+          <input
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            :class="invalidUsername ? 'border-red-500' : ''"
+            @change="invalidUsername = false"
+            id="emailInput"
+            type="email"
+            placeholder="Email"
+            v-model="email"
+          />
+          <p v-if="invalidUsername" class="text-red-500 text-xs italic">
+            {{ invalidUsernameMessage }}
+          </p>
+        </div>
+        <div class="mb-6">
+          <label
+            class="block text-gray-700 text-sm font-bold mb-2"
+            for="password"
+          >
+            Password
+          </label>
+          <input
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
+            :class="invalidPass ? 'border-red-500' : ''"
+            @change="invalidPass = false"
+            id="password"
+            type="password"
+            placeholder="**********"
+            v-model="pass"
+          />
+          <p v-if="invalidPass" class="text-red-500 text-xs italic">
+            {{ invalidPassMessage }}
+          </p>
+        </div>
+        <div class="flex w-full">
+          <button
+            :disabled="pass.length == 0 || email.length == 0"
+            class="btn w-full mx-auto"
+            :class="{ loading: loading }"
+            type="submit"
+          >
+            Create account
+          </button>
+        </div>
+        <div class="mt-6">
+          Already have an account?<br />
+          <router-link :to="{ name: 'profile' }"
+            ><a class="link">Sign in here</a></router-link
+          >
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script lang="ts">
+import { mapGetters } from "vuex";
+import store from "@/store";
+export default {
+  components: {},
+  data() {
+    return {
+      email: "",
+      pass: "",
+      name: "",
+      invalidPass: false,
+      invalidPassMessage: "",
+      invalidUsername: false,
+      invalidUsernameMessage: "",
+      loading: false,
+    };
+  },
+  mounted() {
+    console.log("Sign up");
+  },
+  computed: {
+    //...mapState({
+    //  user: state => state.auth.user,
+    //})
+    //mapState({
+    //user: state => state.auth.user,
+    //})
+    ...mapGetters("cognito", ["user"]),
+  },
+  methods: {
+    async signUp() {
+      this.loading = true;
+      const username = this.email.replace("@", "-");
+      store
+        .dispatch("cognito/signUp", {
+          attributes: {
+            email: this.email,
+          },
+          username,
+          password: this.pass,
+        })
+        .then((r) => {
+          return store.dispatch("cognito/authenticateUser", {
+            username,
+            password: this.pass,
+          });
+        })
+        .then(() => {
+          return store.dispatch("cognito/getUserAttributes");
+        })
+        .then(() => {
+          this.loading = false;
+          this.$router.push({ name: "accountSetup" });
+        })
+
+        .catch((e) => {
+          this.loading = false;
+          if (
+            e.code == "InvalidPasswordException" ||
+            e.code == "InvalidParameterException"
+          ) {
+            this.invalidPass = true;
+            this.invalidPassMessage = e.message;
+            return;
+          }
+          if (e.code == "UsernameExistsException") {
+            this.invalidUsername = true;
+            this.invalidUsernameMessage = e.message;
+            return;
+          }
+          console.error(e);
+        });
+    },
+  },
+};
+</script>
+
+<style></style>
