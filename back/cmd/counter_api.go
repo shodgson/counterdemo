@@ -22,7 +22,7 @@ func init() {
 	router.Route(http.MethodGet, "users", getUsers)
 	router.Route(http.MethodPost, "users/:username", createUser)
 	router.Route(http.MethodGet, "users/:username", getUserCount)
-	router.Route(http.MethodPatch, "users/:username", setCount)
+	router.Route(http.MethodPatch, "count", setCount)
 	//router.Route("POST", "users/:username", playing())
 	//router.Route("POST", "users/:username/add", addToCount)
 	//router.Route("POST", "users/:username/reset", resetCout)
@@ -36,6 +36,9 @@ func response(obj interface{}, err error) (events.APIGatewayV2HTTPResponse, erro
 	if err != nil {
 		if err == dynamo.ErrNotFound {
 			return lmdrouter.MarshalResponse(http.StatusNotFound, nil, "Item not found")
+		}
+		if err == counter.ErrAccessDenied {
+			return lmdrouter.MarshalResponse(http.StatusForbidden, nil, "User does not have permission to perform this action")
 		}
 		return lmdrouter.HandleError(err)
 	}

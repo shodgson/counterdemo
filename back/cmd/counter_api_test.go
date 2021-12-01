@@ -20,54 +20,86 @@ import (
 
 var apiUrl string
 
-var testUser = counter.CountItem{
-	Name:  "apitestuser12@example.com",
-	Count: 0,
+var testUsers = []counter.CountItem{
+	{
+		Name:  "apitestuser12@example.com",
+		Count: 0,
+	},
+	{
+		Name:  "intruder1@example.com",
+		Count: 0,
+	},
 }
 
-var testCognitoUser = cognito.User{
-	Username: testUser.Name,
-	Password: "testpassword123",
+var testCognitoUsers = []cognito.User{
+	{
+		Username: testUsers[0].Name,
+		Password: "testpassword123",
+	},
+	{
+		Username: testUsers[1].Name,
+		Password: "l33tpassword",
+	},
 }
 
 func TestAPI(t *testing.T) {
 
 	setupTest()
 
-	// Create cognito user
-	err := testCognitoUser.SignUp()
+	// Create cognito users
+	err := testCognitoUsers[0].SignUp()
+	assert.Nil(t, err)
+	err = testCognitoUsers[1].SignUp()
 	assert.Nil(t, err)
 	type CognitoClaims struct {
 		Username string `json:"username"`
 		jwt.StandardClaims
 	}
-	token, _ := jwt.Parse(*testCognitoUser.AccessToken, nil)
-	testUser.Id = fmt.Sprintf("%v", token.Claims.(jwt.MapClaims)["username"])
 
-	// User
-	checkEndpoint(t, "GET", "users", nil, http.StatusOK)
-	checkEndpoint(t, "GET", "users/"+testUser.Id, nil, http.StatusNotFound)
-	checkEndpoint(t, "POST", "users/"+testUser.Name, nil, http.StatusUnauthorized)
-	checkEndpoint(t, "POST", "users/"+testUser.Name, testCognitoUser.AccessToken, http.StatusOK)
-	checkEndpoint(t, "GET", "users/"+testUser.Id, nil, http.StatusOK)
+	// User creation
+	for i, u := range testCognitoUsers {
+		token, _ := jwt.Parse(*u.AccessToken, nil)
+		testUsers[i].Id = fmt.Sprintf("%v", token.Claims.(jwt.MapClaims)["username"])
+		testUser := testUsers[i]
+		checkEndpoint(t, "GET", "users", nil, http.StatusOK)
+		checkEndpoint(t, "GET", "users/"+testUser.Id, nil, http.StatusNotFound)
+		checkEndpoint(t, "POST", "users/"+testUser.Name, nil, http.StatusUnauthorized)
+		checkEndpoint(t, "POST", "users/"+testUser.Name, u.AccessToken, http.StatusOK)
+		checkEndpoint(t, "GET", "users/"+testUser.Id, nil, http.StatusOK)
+	}
 
-	// Add 1
-	resp, err := sendRequest("PATCH", "users/"+testUser.Id, nil, []byte(`{"add": 1}`))
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	// Add
+	addTest := []struct {
+		user       int
+		authorized bool
+		add        int
+		resultCode int
+		resultSum  int
+	}{
+		{0, false, 1, http.StatusUnauthorized, 0},
+		{0, true, 1, http.StatusOK, 1},
+		{1, true, 1, http.StatusOK, 1},
+		{0, true, 1, http.StatusOK, 2},
+		{0, true, 3, http.StatusOK, 5},
+		{0, true, 1, http.StatusForbidden, 2},
+	}
 
-	resp, err = sendRequest("PATCH", "users/"+testUser.Name, testCognitoUser.AccessToken, []byte(`{"add": 1}`))
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	defer resp.Body.Close()
-	rbody, _ := ioutil.ReadAll(resp.Body)
-	assert.Equal(t, fmt.Sprintf(`{"id":"%s","name":"%s","count":1}`, testUser.Id, testUser.Name), string(rbody))
-
-	// Add 2 more
-	resp, err = sendRequest("PATCH", "users/"+testUser.Name, testCognitoUser.AccessToken, []byte(`{"add": 2}`))
-	defer resp.Body.Close()
-	rbody, _ = ioutil.ReadAll(resp.Body)
-	assert.Equal(t, fmt.Sprintf(`{"id":"%s","name":"%s","count":3}`, testUser.Id, testUser.Name), string(rbody))
+	for _, aT := range addTest {
+		requestBody := []byte(fmt.Sprintf("{\"add\": %d}", aT.add))
+		user := testUsers[aT.user]
+		token := testCognitoUsers[aT.user].AccessToken
+		if !aT.authorized {
+			token = nil
+		}
+		resp, err := sendRequest("PATCH", "count", token, requestBody)
+		assert.Nil(t, err)
+		assert.Equal(t, aT.resultCode, resp.StatusCode)
+		if aT.resultCode == http.StatusOK {
+			defer resp.Body.Close()
+			rbody, _ := ioutil.ReadAll(resp.Body)
+			assert.Equal(t, fmt.Sprintf(`{"id":"%s","name":"%s","count":%d}`, user.Id, user.Name, aT.resultSum), string(rbody))
+		}
+	}
 
 	teardown()
 
@@ -106,14 +138,22 @@ func setupTest() {
 	cognito.SetupCognito()
 
 	// Clean up test data
-	err = counter.Delete(testUser.Name)
+	err = counter.Delete(testUsers[0].Name)
 	if err != nil {
-		log.Fatal("Error deleting test user", err)
+		log.Fatal("Error deleting test user 0", err)
+	}
+	err = counter.Delete(testUsers[1].Name)
+	if err != nil {
+		log.Fatal("Error deleting test user 1", err)
 	}
 }
 
 func teardown() {
-	err := testCognitoUser.Delete()
+	err := testCognitoUsers[0].Delete()
+	if err != nil {
+		log.Fatal("Error deleting cognito test user", err)
+	}
+	err = testCognitoUsers[1].Delete()
 	if err != nil {
 		log.Fatal("Error deleting cognito test user", err)
 	}

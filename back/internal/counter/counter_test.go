@@ -20,7 +20,7 @@ func TestUsers(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestAddUser(t *testing.T) {
+func TestCounter(t *testing.T) {
 	id := testUser.Id
 	name := testUser.Name
 	users, _ := Users()
@@ -40,12 +40,41 @@ func TestAddUser(t *testing.T) {
 	assert.Equal(t, name, u.Name)
 	assert.Equal(t, 0, u.Count)
 
+	// Increment
 	u, err = Increment(id, 1)
+	assert.Nil(t, err)
 	assert.Equal(t, 1, u.Count)
 	_, err = Increment(id, 1)
+	assert.Nil(t, err)
 	_, err = Increment(id, 1)
+	assert.Nil(t, err)
 	u, err = User(id)
 	assert.Equal(t, 3, u.Count)
+
+	// Premium limits (free account)
+	_, err = Increment(id, 3)
+	assert.NotNil(t, err)
+	u, err = Increment(id, 2)
+	assert.Equal(t, 5, u.Count)
+	u, err = Increment(id, 1)
+	assert.NotNil(t, err)
+
+	// Account management
+	subID := "sub123"
+	u, err = SetAccount(id, true, subID)
+	assert.Nil(t, err)
+	assert.Equal(t, true, u.Premium)
+	assert.Equal(t, subID, u.StripeSubscriptionID)
+	u, err = SetAccount(id, false, "")
+	assert.Nil(t, err)
+	assert.Equal(t, false, u.Premium)
+	u, err = SetAccount(id, true, subID)
+	assert.Nil(t, err)
+	assert.Equal(t, true, u.Premium)
+
+	// Premium limits (premium account)
+	u, err = Increment(id, 1)
+	assert.Equal(t, 6, u.Count)
 
 }
 
