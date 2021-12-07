@@ -4,4 +4,4 @@ bin/
 node_modules/
 .serverless/
 .npmignore
-.env
+.env*

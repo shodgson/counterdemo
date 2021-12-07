@@ -58,7 +58,7 @@
         </div>
         <div class="mt-6">
           Already have an account?<br />
-          <router-link :to="{ name: 'profile' }"
+          <router-link :to="{ name: 'signIn' }"
             ><a class="link">Sign in here</a></router-link
           >
         </div>
@@ -68,9 +68,11 @@
 </template>
 
 <script lang="ts">
+import { defineComponent } from 'vue'
 import { mapGetters } from "vuex";
 import store from "@/store";
-export default {
+import { CognitoError } from "@/types/cognito";
+export default  defineComponent({
   components: {},
   data() {
     return {
@@ -85,7 +87,6 @@ export default {
     };
   },
   mounted() {
-    console.log("Sign up");
   },
   computed: {
     //...mapState({
@@ -99,30 +100,23 @@ export default {
   methods: {
     async signUp() {
       this.loading = true;
-      const username = this.email.replace("@", "-");
       store
         .dispatch("cognito/signUp", {
-          attributes: {
-            email: this.email,
-          },
-          username,
+          username: this.email,
           password: this.pass,
         })
-        .then((r) => {
+        .then(() => {
           return store.dispatch("cognito/authenticateUser", {
-            username,
+            username: this.email,
             password: this.pass,
           });
         })
         .then(() => {
-          return store.dispatch("cognito/getUserAttributes");
-        })
-        .then(() => {
           this.loading = false;
-          this.$router.push({ name: "accountSetup" });
+          this.$router.push({ name: "home" });
         })
 
-        .catch((e) => {
+        .catch((e: CognitoError) => {
           this.loading = false;
           if (
             e.code == "InvalidPasswordException" ||
@@ -141,7 +135,7 @@ export default {
         });
     },
   },
-};
+});
 </script>
 
 <style></style>

@@ -76,6 +76,10 @@ func TestCounter(t *testing.T) {
 	u, err = Increment(id, 1)
 	assert.Equal(t, 6, u.Count)
 
+	// Reset
+	u, err = Reset(id)
+	assert.Equal(t, 0, u.Count)
+
 }
 
 /*
@@ -99,7 +103,7 @@ func TestMain(m *testing.M) {
 }
 
 func loadEnvVariables() {
-	err := godotenv.Load("../../.env")
+	err := godotenv.Load("../../../.env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}

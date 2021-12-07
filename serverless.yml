@@ -22,8 +22,14 @@ provider:
   environment:
     STAGE: ${sls:stage}
     COGNITO_CLIENT_ID: ${env:COGNITO_CLIENT_ID}
+    STRIPE_PRICE_ID: ${env:STRIPE_PRICE_ID}
+    STRIPE_KEY: ${env:STRIPE_KEY}
+    BASE_URL: ${env:BASE_URL}
+    STRIPE_ENDPOINT_SECRET: ${env:STRIPE_ENDPOINT_SECRET}
+
 
   httpApi:
+    cors: true
     authorizers:
       serviceAuthorizer:
         identitySource: $request.header.Authorization
@@ -38,14 +44,15 @@ provider:
           - Ref: serviceUserPoolClient
 
 package:
-  patterns:
-    - '!./**'
-    - ./back/bin/**
-    - ./back/js/**
+  individually: true
 
 functions:
   counter:
-    handler: bin/counter_api
+    handler: back/bin/counter_api
+    package:
+      patterns:
+        - '!./**'
+        - ./back/bin/counter_api
     events:
       - httpApi:
           path: /users
@@ -53,10 +60,6 @@ functions:
       - httpApi:
           path: /users/{username}
           method: get
-      - httpApi:
-          path: /users/{username}
-          method: post
-          authorizer: serviceAuthorizer
       - httpApi:
           path: /count
           method: patch
@@ -66,16 +69,21 @@ functions:
       - httpApi:
           path: /subscription/activation_url
           method: get
+          authorizer: serviceAuthorizer
       - httpApi:
           path: /subscription/cancel
           method: post
+          authorizer: serviceAuthorizer
       - httpApi:
           path: /subscription/webhook
           method: post
 
   cognitoHandlers:
-    handler: js/preSignUp.handler
-    runtime: nodejs14.x
+    handler: back/bin/preSignUp
+    package:
+      patterns:
+        - '!./**'
+        - ./back/bin/preSignUp
     events:
       - cognitoUserPool:
           pool: service-user-pool-${sls:stage}

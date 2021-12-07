@@ -17,8 +17,8 @@ var stripeKey string
 var baseURL string
 var endpointSecret string
 
-const stripeSuccessPath = "https://localhost/?payment=success"
-const stripeCancelPath = "https://localhost/?payment=cancel"
+const stripeSuccessPath = "?payment=success"
+const stripeCancelPath = "?payment=cancel"
 
 func SetupConfiguration() {
 	priceId = os.Getenv("STRIPE_PRICE_ID")
@@ -46,7 +46,7 @@ func Unsubscribe(subscriptionID string, now bool, undo bool) (err error) {
 	return
 }
 
-func PaymentURL(username string) (url string, err error) {
+func PaymentURL(email string, id string) (url string, err error) {
 	stripe.Key = stripeKey
 	params := &stripe.CheckoutSessionParams{
 		SuccessURL: stripe.String(baseURL + stripeSuccessPath),
@@ -54,8 +54,8 @@ func PaymentURL(username string) (url string, err error) {
 		PaymentMethodTypes: stripe.StringSlice([]string{
 			"card",
 		}),
-		ClientReferenceID: stripe.String(username),
-		CustomerEmail:     stripe.String(username),
+		ClientReferenceID: stripe.String(id),
+		CustomerEmail:     stripe.String(email),
 		Mode:              stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			&stripe.CheckoutSessionLineItemParams{
@@ -76,11 +76,13 @@ const (
 	HookCancelled
 )
 
-func ProcessWebhook(body []byte, signature string) (result int, username string, err error) {
+func ProcessWebhook(body []byte, signature string) (result int, userId string, subscriptionId string, err error) {
+	stripe.Key = stripeKey
 
 	event, err := webhook.ConstructEvent(body, signature, endpointSecret)
 
 	if err != nil {
+		fmt.Printf("sig: %s, secret: %s, key: %s\n", signature, endpointSecret, stripe.Key)
 		fmt.Fprintf(os.Stderr, "Error verifying webhook signature: %v\n", err)
 		return
 	}
@@ -94,8 +96,9 @@ func ProcessWebhook(body []byte, signature string) (result int, username string,
 			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
 			return
 		}
-		username = checkout.ClientReferenceID
+		userId = checkout.ClientReferenceID
 		result = HookPaid
+		subscriptionId = checkout.Subscription.ID
 
 	case "customer.subscription.updated":
 		var subscription stripe.Subscription
@@ -104,6 +107,7 @@ func ProcessWebhook(body []byte, signature string) (result int, username string,
 			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
 			return
 		}
+		subscriptionId = subscription.ID
 		// TODO: if payment fails, find customer and mark as inactive
 
 	case "customer.subscription.deleted":
@@ -119,7 +123,8 @@ func ProcessWebhook(body []byte, signature string) (result int, username string,
 			fmt.Fprintf(os.Stderr, "Error finding customer: %v\n", err)
 			return
 		}
-		username = c.Email
+		userId = c.Email
+		subscriptionId = subscription.ID
 		return
 
 	default:

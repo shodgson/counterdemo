@@ -2,12 +2,11 @@ import { createStore } from "vuex";
 
 // Modules
 import CognitoAuth from "./modules/cognito";
-import cognitoConfig from "@/config/cognito.ts";
 import account from "./modules/account";
 
-const store = new createStore({
+const store = createStore({
   modules: {
-    cognito: new CognitoAuth(cognitoConfig),
+    cognito: CognitoAuth(),
     account,
   },
 });

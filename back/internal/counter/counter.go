@@ -72,13 +72,24 @@ func Increment(id string, value int) (c CountItem, err error) {
 	return
 }
 
+func Reset(id string) (c CountItem, err error) {
+	err = countTable.Update("id", id).
+		Set("count", 0).
+		Value(&c)
+	if ae, ok := err.(awserr.RequestFailure); ok {
+		if ae.Code() == "ConditionalCheckFailedException" {
+			err = ErrAccessDenied
+		}
+	}
+	return
+}
+
 func SetAccount(id string, premium bool, subscriptionID string) (c CountItem, err error) {
 	err = countTable.Update("id", id).
 		Set("premium", premium).
 		Set("stripe_subscription_id", subscriptionID).
 		Value(&c)
 	return
-
 }
 
 func Delete(id string) error {
