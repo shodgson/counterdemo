@@ -26,7 +26,14 @@ const countApi = {
       endpoint: `subscription/activation_url`,
       authNeeded: true,
     });
-  }
+  },
+  cancelSubscription() {
+    return sendRequest({
+      endpoint: `subscription/cancel`,
+      verb: "POST",
+      authNeeded: true,
+    });
+  },
 };
 
 /*

@@ -1,24 +1,22 @@
 <template>
   <div class="max-w-xl mx-auto">
-    <h1>
-      Profile
-    </h1>
+    <div class="text-xl mt-6">Profile</div>
 
- <div class="text-left">
+    <div class="text-left">
       <div class="flex justify-between">
         <div class="font-bold">Email</div>
-        <div>{{ email }}</div>
+        <div v-if="ready">{{ email }}</div>
       </div>
 
       <div class="flex justify-between mt-4">
         <div class="font-bold">User ID</div>
-        <div>{{ username }}</div>
+        <div v-if="ready">{{ username }}</div>
       </div>
 
       <div class="flex justify-between mt-4">
         <div class="font-bold">Current plan</div>
-        <div v-if="accountActive" class="flex">
-          <div class="text-right">Premium (US$5/month)</div>
+        <div v-if="accountActive && ready" class="flex">
+          <div class="text-right">Premium (US$20/month)</div>
           <button
             class="btn btn-outline btn-xs ml-2"
             :class="{ loading: loadActivation }"
@@ -27,7 +25,7 @@
             Cancel
           </button>
         </div>
-        <div v-if="!accountActive" class="flex">
+        <div v-if="!accountActive && ready" class="flex">
           <div class="text-right">Free</div>
           <button
             class="btn btn-outline btn-xs ml-2"
@@ -48,12 +46,17 @@
         Sign out
       </button>
     </div>
+    <div class="mt-5 text-gray-500 text-sm" v-if="!accountActive && ready">
+      Demo: you can upgrade with a <a class="link" href="https://stripe.com/docs/testing#cards">Stripe dummy credit card</a>
+
+      </div>
+
   </div>
 </template>
 <script lang="ts">
 import store from "@/store";
 import { mapGetters } from "vuex";
-import { defineComponent } from 'vue'
+import { defineComponent } from "vue";
 import countApi from "@/api";
 export default defineComponent({
   components: {},
@@ -61,14 +64,24 @@ export default defineComponent({
     return {
       signingOut: false,
       loadActivation: false,
-      email: "TODO",
+      email: "",
+      accountActive: false,
+      ready: false,
     };
   },
   computed: {
     ...mapGetters("cognito", ["username"]),
-    ...mapGetters("account", ["accountActive"]),
   },
-  created() {},
+  mounted() {
+    countApi
+      .getUser(this.username)
+      .then((r) => {
+        this.email = r.name
+        this.accountActive = r.premium || false
+        this.ready = true
+      })
+
+  },
   methods: {
     signOut: function () {
       this.signingOut = true;
@@ -79,14 +92,19 @@ export default defineComponent({
     },
     upgrade: function () {
       this.loadActivation = true;
-      countApi.paymentUrl()
-        .then((r) => {
-          this.loadActivation = false;
-          window.location.href = r.URL;
-        });
+      countApi.paymentUrl().then((r) => {
+        this.loadActivation = false;
+        window.location.href = r.URL;
+      });
     },
     cancel: function () {
       this.loadActivation = true;
+      countApi
+        .cancelSubscription()
+        .then(() => this.accountActive = false)
+        .catch((e) => console.error(e))
+        .finally(() => this.loadActivation = false)
+
       /*
       cancelAccount()
         .then((r) => {

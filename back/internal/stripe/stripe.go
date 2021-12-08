@@ -3,11 +3,11 @@ package stripe
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	stripe "github.com/stripe/stripe-go/v72"
 	stripesession "github.com/stripe/stripe-go/v72/checkout/session"
-	"github.com/stripe/stripe-go/v72/customer"
 	"github.com/stripe/stripe-go/v72/sub"
 	"github.com/stripe/stripe-go/v72/webhook"
 )
@@ -56,7 +56,12 @@ func PaymentURL(email string, id string) (url string, err error) {
 		}),
 		ClientReferenceID: stripe.String(id),
 		CustomerEmail:     stripe.String(email),
-		Mode:              stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
+			Metadata: map[string]string{
+				"id": id,
+			},
+		},
+		Mode: stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			&stripe.CheckoutSessionLineItemParams{
 				Price:    stripe.String(priceId),
@@ -87,6 +92,7 @@ func ProcessWebhook(body []byte, signature string) (result int, userId string, s
 		return
 	}
 
+	log.Println("HOOK!")
 	// Unmarshal the event data into an appropriate struct depending on its Type
 	switch event.Type {
 	case "checkout.session.completed":
@@ -111,20 +117,16 @@ func ProcessWebhook(body []byte, signature string) (result int, userId string, s
 		// TODO: if payment fails, find customer and mark as inactive
 
 	case "customer.subscription.deleted":
+		log.Println("deleted")
 		var subscription stripe.Subscription
 		err = json.Unmarshal(event.Data.Raw, &subscription)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
 			return
 		}
-		var c *stripe.Customer
-		c, err = customer.Get(subscription.Customer.ID, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error finding customer: %v\n", err)
-			return
-		}
-		userId = c.Email
+		result = HookCancelled
 		subscriptionId = subscription.ID
+		userId = subscription.Metadata["id"]
 		return
 
 	default:

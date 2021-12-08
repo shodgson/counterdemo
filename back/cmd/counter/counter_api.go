@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 
@@ -25,9 +26,7 @@ func init() {
 	router.Route(http.MethodPatch, "count", setCount)
 	router.Route(http.MethodGet, "subscription/activation_url", activationUrl)
 	router.Route(http.MethodPost, "subscription/webhook", stripeWebhook)
-	//router.Route("POST", "users/:username", playing())
-	//router.Route("POST", "users/:username/add", addToCount)
-	//router.Route("POST", "users/:username/reset", resetCout)
+	router.Route(http.MethodPost, "subscription/cancel", cancelStripe)
 }
 
 func main() {
@@ -113,8 +112,34 @@ func stripeWebhook(ctx context.Context,
 ) {
 	stripeSignature := req.Headers["stripe-signature"]
 	result, userId, subId, err := stripe.ProcessWebhook([]byte(req.Body), stripeSignature)
-	if result == stripe.HookPaid && err == nil {
+	if err != nil {
+		return response(nil, err)
+	}
+	log.Println(result)
+	switch result {
+	case stripe.HookPaid:
 		_, err = counter.SetAccount(userId, true, subId)
+	case stripe.HookCancelled:
+		log.Println("HookCancelled")
+		log.Println(userId)
+		_, err = counter.SetAccount(userId, false, "")
+	default:
+		err = errors.New("Unknown webhook")
 	}
 	return response("", err)
+}
+
+func cancelStripe(ctx context.Context,
+	req events.APIGatewayV2HTTPRequest,
+) (
+	events.APIGatewayV2HTTPResponse,
+	error,
+) {
+	id := req.RequestContext.Authorizer.JWT.Claims["sub"]
+	u, err := counter.User(id)
+	if err != nil {
+		return response("", err)
+	}
+	err = stripe.Unsubscribe(u.StripeSubscriptionID, true, false)
+	return response(nil, err)
 }

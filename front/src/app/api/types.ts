@@ -13,4 +13,5 @@ export interface User {
     id: string;
     name: string;
     count: number;
+    premium?: boolean;
 }
