@@ -3,7 +3,6 @@ package stripe
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	stripe "github.com/stripe/stripe-go/v72"
@@ -12,24 +11,13 @@ import (
 	"github.com/stripe/stripe-go/v72/webhook"
 )
 
-var priceId string
-var stripeKey string
-var baseURL string
-var endpointSecret string
+var priceId = os.Getenv("STRIPE_PRICE_ID")
+var stripeKey = os.Getenv("STRIPE_KEY")
+var baseURL = os.Getenv("BASE_URL")
+var endpointSecret = os.Getenv("STRIPE_ENDPOINT_SECRET")
 
 const stripeSuccessPath = "?payment=success"
 const stripeCancelPath = "?payment=cancel"
-
-func SetupConfiguration() {
-	priceId = os.Getenv("STRIPE_PRICE_ID")
-	stripeKey = os.Getenv("STRIPE_KEY")
-	baseURL = os.Getenv("BASE_URL")
-	endpointSecret = os.Getenv("STRIPE_ENDPOINT_SECRET")
-}
-
-func init() {
-	SetupConfiguration()
-}
 
 func Unsubscribe(subscriptionID string, now bool, undo bool) (err error) {
 	stripe.Key = stripeKey
@@ -92,45 +80,25 @@ func ProcessWebhook(body []byte, signature string) (result int, userId string, s
 		return
 	}
 
-	log.Println("HOOK!")
-	// Unmarshal the event data into an appropriate struct depending on its Type
-	switch event.Type {
-	case "checkout.session.completed":
-		var checkout stripe.CheckoutSession
-		err = json.Unmarshal(event.Data.Raw, &checkout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-			return
-		}
-		userId = checkout.ClientReferenceID
-		result = HookPaid
-		subscriptionId = checkout.Subscription.ID
-
-	case "customer.subscription.updated":
-		var subscription stripe.Subscription
-		err = json.Unmarshal(event.Data.Raw, &subscription)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-			return
-		}
-		subscriptionId = subscription.ID
-		// TODO: if payment fails, find customer and mark as inactive
-
-	case "customer.subscription.deleted":
-		log.Println("deleted")
-		var subscription stripe.Subscription
-		err = json.Unmarshal(event.Data.Raw, &subscription)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
-			return
-		}
-		result = HookCancelled
-		subscriptionId = subscription.ID
-		userId = subscription.Metadata["id"]
+	var subscription stripe.Subscription
+	err = json.Unmarshal(event.Data.Raw, &subscription)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing webhook JSON: %v\n", err)
 		return
+	}
+	subscriptionId = subscription.ID
+	userId = subscription.Metadata["id"]
 
+	switch event.Type {
+	case "customer.subscription.created":
+		result = HookPaid
+		return
+	case "customer.subscription.deleted":
+		result = HookCancelled
+		return
 	default:
 		fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
+		result = -1
 	}
 	return
 }

@@ -105,25 +105,6 @@ export default defineComponent({
         .catch((e) => console.error(e))
         .finally(() => this.loadActivation = false)
 
-      /*
-      cancelAccount()
-        .then((r) => {
-          loadProfile().then((p) => {
-            store.dispatch("account/setActiveStatus", p.active);
-          });
-          this.$toast.open({
-            message: "Subscription cancelled",
-            type: "success",
-          });
-          this.loadActivation = false;
-        })
-        .catch((e) => {
-          this.loadActivation = false;
-          e.then((p) => {
-            console.error(p.message)
-          });
-        });
-        */
     },
   },
 });

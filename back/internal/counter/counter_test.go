@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -82,36 +81,12 @@ func TestCounter(t *testing.T) {
 
 }
 
-/*
-func TestValidIncrements(t *testing.T) {
-	tests := []struct {
-		name string,
-		startCount int,
-		premium bool,
-		add int,
-		valid bool
-	}{
-		{}
-	}
-	u, := CreateUser("valid-increment-1", "valid-increment)
-}
-*/
-
 func TestMain(m *testing.M) {
 	code := m.Run()
 	os.Exit(code)
 }
 
-func loadEnvVariables() {
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-}
-
 func init() {
-	loadEnvVariables()
-	SetupTable()
 	err := Delete(testUser.Id)
 	if err != nil {
 		log.Fatal("Unable to delete user")

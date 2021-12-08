@@ -9,14 +9,9 @@ import (
 	cognito "github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
 
-var cip *cognito.CognitoIdentityProvider
-var cognitoClientId string
-
-func SetupCognito() {
-	region := os.Getenv("AWS_REGION")
-	cognitoClientId = os.Getenv("COGNITO_CLIENT_ID")
-	cip = cognito.New(session.New(), aws.NewConfig().WithRegion(region))
-}
+var region = os.Getenv("AWS_REGION")
+var cognitoClientId = os.Getenv("COGNITO_CLIENT_ID")
+var cip = cognito.New(session.New(), aws.NewConfig().WithRegion(region))
 
 type User struct {
 	Username          string
@@ -97,8 +92,4 @@ func (u *User) Delete() error {
 	}
 	_, err := cip.DeleteUser(cognitoUser)
 	return err
-}
-
-func init() {
-	SetupCognito()
 }

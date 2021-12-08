@@ -12,13 +12,12 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/joho/godotenv"
 	"github.com/shodgson/speedbuild/internal/cognito"
 	"github.com/shodgson/speedbuild/internal/counter"
 	"github.com/stretchr/testify/assert"
 )
 
-var apiUrl string
+var apiUrl = os.Getenv("API_URL")
 
 var testUsers = []counter.CountItem{
 	{
@@ -125,17 +124,8 @@ func sendRequest(method string, path string, token *string, body []byte) (*http.
 }
 
 func setupTest() {
-	// Set environment variables
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	apiUrl = os.Getenv("API_URL")
-	counter.SetupTable()
-	cognito.SetupCognito()
-
 	// Clean up test data
-	err = counter.Delete(testUsers[0].Name)
+	err := counter.Delete(testUsers[0].Name)
 	if err != nil {
 		log.Fatal("Error deleting test user 0", err)
 	}

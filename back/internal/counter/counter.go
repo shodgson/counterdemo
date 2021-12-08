@@ -15,21 +15,14 @@ import (
 var tableName = "counts"
 var FreeLimit = 5
 
-var sess *session.Session
-var db *dynamo.DB
-var stage string
-var countTable dynamo.Table
+var sess = session.Must(session.NewSession(&aws.Config{
+	Region: aws.String(os.Getenv("AWS_REGION")),
+}))
+var db = dynamo.New(sess, nil)
+var stage = os.Getenv("STAGE")
+var countTable = db.Table(fmt.Sprintf("%s-%s", stage, tableName))
 
 var ErrAccessDenied = errors.New("Access denied")
-
-func SetupTable() {
-	sess = session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(os.Getenv("AWS_REGION")),
-	}))
-	db = dynamo.New(sess, nil)
-	stage = os.Getenv("STAGE")
-	countTable = db.Table(fmt.Sprintf("%s-%s", stage, tableName))
-}
 
 // Database entry
 type CountItem struct {
@@ -94,8 +87,4 @@ func SetAccount(id string, premium bool, subscriptionID string) (c CountItem, er
 
 func Delete(id string) error {
 	return countTable.Delete("id", id).Run()
-}
-
-func init() {
-	SetupTable()
 }

@@ -7,12 +7,46 @@
     <!-- Use https://realfavicongenerator.net/ -->
     <!-- Insert favicon and theme colours -->
 
-    <title>Speed build template</title>
-    <base href='<%= VITE_APP_BASE_HREF %>'/>
+    <title>Counter</title>
+    <base href="<%= VITE_APP_BASE_HREF %>" />
   </head>
   <body>
-    <h1>Hello speed build</h1>
-    <a href="app/">Sign up</a>
-    <a href="app/">Sign in</a>
+    <h1>Counter demo</h1>
+    <section>
+      <h3>Have your own personalised counter.</h3>
+      Free to count up to 5.
+      <br />
+      $20/month for unlimited counting.
+    </section>
+    <br />
+    <section>
+      <a href="app/signup"><button>Sign up</button></a>
+      <a href="app/signin"><button>Sign in</button></a>
+    </section>
+    <section>
+      <h3>Total number of users: <span id="numUsers">0</span></h3>
+    </section>
+    <section>
+      Note this is a demonstration project only!
+      <a href="https://bilbybuilds.com/projects/speedbuild">Learn more</a>
+    </section>
+    <script type="application/javascript">
+      async function setNumUsers(value) {
+        const txt = document.getElementById("numUsers");
+        let displayValue = 0;
+        const time = 1000;
+        const increment = time / (value - displayValue);
+        while (displayValue < value) {
+          displayValue++;
+          txt.innerHTML = displayValue.toString();
+          await new Promise((r) => setTimeout(r, increment));
+        }
+      }
+      fetch("<%= VITE_AWS_API_URL %>/users")
+        .then((r) => {
+          r.json().then((users) => setNumUsers(users.length));
+        })
+        .catch((e) => console.error(e));
+    </script>
   </body>
 </html>

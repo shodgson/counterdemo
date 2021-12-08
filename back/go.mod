@@ -7,7 +7,6 @@ require (
 	github.com/aws/aws-sdk-go v1.41.19
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/guregu/dynamo v1.11.0
-	github.com/joho/godotenv v1.4.0
 	github.com/shodgson/lmdrouterv2 v0.4.2-http
 	github.com/stretchr/testify v1.6.1
 	github.com/stripe/stripe-go/v72 v72.77.0

@@ -1,31 +1,42 @@
 .PHONY: build clean deploy gomodgen
-include .env
 
 # Default parameters
-STAGE = dev
+STAGE = dev # Set to 'production' for live server
 FUNCTION = counter
+BACKEND = back
+FRONTEND = front
 
-build: gomodgen
+
+buildfront: 
+	cd $(FRONTEND) && npm run build
+
+deployfront:
+	aws s3 sync ./$(FRONTEND)/dist s3://$(BUCKETNAME) --profile $(AWS_PROFILE)
+
+buildback: gomodgen
 	export GO111MODULE=on
-	cd back && go mod tidy
-	cd back && env GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/counter_api cmd/counter/counter_api.go
-	cd back && env GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/preSignUp cmd/cognito/preSignUp.go
+	cd $(BACKEND) && go mod tidy
+	cd $(BACKEND) && env GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/counter_api cmd/counter/counter_api.go
+	cd $(BACKEND) && env GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/preSignUp cmd/cognito/preSignUp.go
+
+
+build: buildback buildfront
 
 clean:
-	rm -rf ./back/bin ./back/vendor ./back/go.sum
+	rm -rf ./$(BACKEND)/bin ./$(BACKEND)/vendor ./$(BACKEND)/go.sum ./$(FRONTEND)/dist
 
-deploy: clean build
+deploy: clean buildback
 	sls deploy --verbose --stage $(STAGE)
 
-deployfunction: clean build
+deployfunction: buildback
 	sls deploy function --function $(FUNCTION) --stage $(STAGE)
 
 gomodgen:
-	cd back && chmod u+x gomod.sh
-	cd back && ./gomod.sh
+	cd $(BACKEND) && chmod u+x gomod.sh
+	cd $(BACKEND) && ./gomod.sh
 
-test: clean build
-	cd back && go test ./... -v
+test: clean buildback
+	sh -ac ' . ./.env; cd $(BACKEND) && go test ./... -v'
 
-integrationtest: clean build
-	cd back && go test ./... -v -tags=integration
+integrationtest: clean buildback
+	sh -ac ' . ./.env; cd $(BACKEND) && go test ./... -v -tags=integration'

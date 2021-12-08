@@ -36,39 +36,6 @@ const countApi = {
   },
 };
 
-/*
-export async function updateSeries(seriesId, series) {
-  const name = await profileName();
-  let endpoint = `/u/${name}/s/${seriesId}`;
-  const params = await getParams(series, "PATCH", true);
-  return sendRequest(endpoint, params);
-}
-
-export async function playlistInfo(playlistId) {
-  let endpoint = `/playliststats/${playlistId}`;
-  const params = await getParams(null, "GET", false);
-  return sendRequest(endpoint, params);
-}
-
-export async function playlistSeries(playlistId) {
-  let endpoint = `/playlistseries/${playlistId}`;
-  const params = await getParams(null, "GET", false);
-  return sendRequest(endpoint, params);
-}
-
-async function profileName() {
-  console.log("Getting username")
-  let profileName = store.getters["cognito/username"];
-  if (profileName) {
-    return profileName.replaceAll(" ", "_");
-  }
-  const u = await store.dispatch("cognito/getUserAttributes");
-  console.debug("fetching attributes for api call");
-  //console.log(u);
-  return u?.preferred_username.replaceAll(" ", "_");
-}
-*/
-
 async function idToken() {
   const user = await store.dispatch("cognito/getCurrentUser");
   return user.tokens?.IdToken;
