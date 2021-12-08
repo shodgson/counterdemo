@@ -1,4 +1,4 @@
-module github.com/shodgson/speedbuild
+module github.com/shodgson/counterdemo
 
 go 1.17
 
