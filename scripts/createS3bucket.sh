@@ -32,6 +32,5 @@ echo "{
 
 aws s3api create-bucket --bucket ${bucketname} --region ${awsregion}  --create-bucket-configuration LocationConstraint=${awsregion} --profile ${awsprofile} \
   && aws s3api put-bucket-policy --bucket ${bucketname} --policy file:///tmp/bucket_policy.json --profile ${awsprofile} \
-  && aws s3 sync ../front/dist/ s3://${bucketname}/  --profile ${awsprofile} \
   && aws s3 website s3://${bucketname}/ --index-document index.html --error-document app/index.html --profile ${awsprofile}
 
